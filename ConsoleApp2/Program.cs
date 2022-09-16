@@ -10,12 +10,10 @@ namespace Viagogo
 
     public class Solution
     {
-       // private const string CacheKey = "closestCity";         
         private static Dictionary<string, int> _distanceCache = new Dictionary<string, int>();
-        private static Dictionary<string, List<Event>> _cachedDictClosestCity = new Dictionary<string, List<Event>>();
-        
         static void Main(string[] args)
         {
+            HashSet<string> set = new HashSet<string>();
 
             var events = new List<Event>{
                         new Event{ Name = "Phantom of the Opera", City = "New York"},
@@ -36,9 +34,9 @@ namespace Viagogo
             //----------------------------------------------------------------------------------------------------------------
 
             // 1. TASK    //query to get all events that matches the city
-            var query = events.Where(x => x.City.Contains(customer.City)).ToList();            
+            var query = events.Where(x => x.City.Contains(customer.City)).ToList();
             //send email
-            query.ForEach(x=>AddToEmail(customer,x));
+            query.ForEach(x => AddToEmail(customer, x));
 
             //Or 
             //Task 1 Simplified answer 
@@ -48,7 +46,7 @@ namespace Viagogo
 
             //2. TASK
             //query to get 5 closest city to customer
-            var closestCity =events.OrderBy(x=> GetDistance(customer.City,x.City))?.Take(5)?.ToList();
+            var closestCity = events.OrderBy(x => GetDistance(customer.City, x.City))?.Take(5)?.ToList();
             //send email
             closestCity.ForEach(x => AddToEmail(customer, x));
 
@@ -60,16 +58,9 @@ namespace Viagogo
             //Task 3
             //If the GetDistance method is an API call which could fail or is too expensive, how will u improve the code written in 2 ? Write the code.
             //Solution is to cache the closest city result and call it anytime i want 
-            var cachedClosestCity = new List<Event>();
-            string CacheKey = customer.City;
-
-            if (_cachedDictClosestCity.ContainsKey(CacheKey))
-                cachedClosestCity = _cachedDictClosestCity?.FirstOrDefault(x => x.Key == CacheKey).Value;
-            else
-                _cachedDictClosestCity.Add(CacheKey, cachedClosestCity=events.OrderBy(x => GetDistance(customer.City, x.City))?.Take(5)?.ToList());
-
-            //send your email
-            cachedClosestCity.ForEach(x => AddToEmail(customer, x));
+            var closestCity3 = events.OrderBy(x => GetDistanceWrapper(customer.City, x.City))?.Take(5)?.ToList();
+            //send email
+            closestCity.ForEach(x => AddToEmail(customer, x));
 
 
             //----------------------------------------------------------------------------------------------------------------
@@ -77,19 +68,17 @@ namespace Viagogo
             // If the GetDistance method can fail, we don't want the process to fail. What can be done?    Code it.
             //Solution : store each distance call in a cache dictionary and reuse  
             //Use fromcity to city as key 
-            int distance = 0;
-            
-                events.ForEach(x => distance
-                = _distanceCache.ContainsKey(x.City + customer?.City) == true
-                ? _distanceCache.FirstOrDefault(y => y.Key == x.City + customer?.City).Value
-                : GetDistance(customer.City, x.City)
-                );
-           
+
+
+            var closestCity4 = events.OrderBy(x => GetDistanceWrapperNoFail(customer.City, x.City))?.Take(5)?.ToList();
+
+
+
 
             //----------------------------------------------------------------------------------------------------------------
             //Task 5
             //order by price 
-            cachedClosestCity.OrderBy(x => GetPrice(x));
+            var closestCity5 = events.OrderBy(x => GetDistanceWrapper(customer.City, x.City))?.ThenBy(x => GetPrice(x)).ToList();
 
 
         }
@@ -107,6 +96,42 @@ namespace Viagogo
         static int GetPrice(Event e)
         {
             return (AlphebiticalDistance(e.City, "") + AlphebiticalDistance(e.Name, "")) / 10;
+        }
+
+
+        static int GetDistanceWrapper(string fromCity, string toCity)
+        {
+            string querykey = fromCity + toCity;
+            if (fromCity == toCity)
+                return 0;
+            if (_distanceCache.ContainsKey(querykey))
+                return _distanceCache.FirstOrDefault(x => x.Key == querykey).Value;
+
+            var distance = GetDistance(fromCity, toCity);
+            _distanceCache.Add(querykey, distance);
+            return distance;
+        }
+
+
+        static int GetDistanceWrapperNoFail(string fromCity, string toCity)
+        {
+            try
+            {
+                string querykey = fromCity + toCity;
+                if (fromCity == toCity)
+                    return 0;
+                if (_distanceCache.ContainsKey(querykey))
+                    return _distanceCache.FirstOrDefault(x => x.Key == querykey).Value;
+
+                var distance = GetDistance(fromCity, toCity);
+                _distanceCache.Add(querykey, distance);
+                return distance;
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
+
         }
 
         static int GetDistance(string fromCity, string toCity)
@@ -129,7 +154,7 @@ namespace Viagogo
                 // Console.Out.WriteLine($"loop 2 i={i} {s.Length} {t.Length}");
                 result += s.Length > t.Length ? s[i] : t[i];
             }
-
+            // Console.WriteLine(s + " to " + t + " miles= " + result);
             return result;
 
         }
